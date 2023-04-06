@@ -1,5 +1,18 @@
+import torch
 import torch.nn.functional as fn
-import torch 
+import numpy as np
+import math
+from torchvision import transforms
+from torchvision import datasets
+import os
+
+
+def to_pair(data):
+    if isinstance(data, tuple):
+        return data[0:2]
+    return (data, data)
+
+
 
 class FilterKernel:
     def __init__(self, window_size):
@@ -34,28 +47,17 @@ class DoGKernel(FilterKernel):
 
 
 class Filter:
-    def __init__(self, filter_kernels, padding=0, thresholds=None):
+    def __init__(self, filter_kernels):
         self.filter_kernels = filter_kernels
-        self.max_window_size = filter_kernels[0].window_size
-        self.kernels = torch.stack([kernel().unsqueeze(0) for kernel in filter_kernels])
-        self.number_of_kernels = len(filter_kernels)
-        self.padding = padding
-        self.thresholds = thresholds
-        # self.use_abs = use_abs
-
+        
     def __call__(self):
-        output = fn.conv2d(input, self.kernels).float()
-        output = torch.where(output < self.thresholds, torch.tensor(0.0, device=output.device), output)
-        # if self.use_abs:
-        #     torch.abs_(output)
-        return output
+        return fn.conv2d(input, self.kernels).float()
 
 
 
 class Intensity2Latency:
-    def __init__(self, timesteps, to_spike=False):
+    def __init__(self, timesteps = 30):
         self.timesteps = timesteps
-        self.to_spike = to_spike
       
 
     def transform(self, intensities):
@@ -80,12 +82,41 @@ class Intensity2Latency:
         return torch.stack(bins_intencities)
     
     def __call__(self):
-        if self.to_spike:
-            return self.intensity_to_latency(image).sign()
         return self.intensity_to_latency(image)
 
 
-def to_pair(data):
-    if isinstance(data, tuple):
-        return data[0:2]
-    return (data, data)
+class CacheDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset, cache_address=None):
+        self.dataset = dataset
+        self.cache_address = cache_address
+        self.cache = [None] * len(self.dataset)
+
+    def __getitem__(self, index):
+        if self.cache[index] is None:
+            sample, target = self.dataset[index]
+            if self.cache_address is None:
+                self.cache[index] = sample, target
+            else:
+                save_path = os.path.join(self.cache_address, str(index))
+                torch.save(sample, save_path + ".cd")
+                torch.save(target, save_path + ".cl")
+                self.cache[index] = save_path
+        else:
+            if self.cache_address is None:
+                sample, target = self.cache[index]
+            else:
+                sample = torch.load(self.cache[index] + ".cd")
+                target = torch.load(self.cache[index] + ".cl")
+        return sample, target
+
+    def reset_cache(self):
+        if self.cache_address is not None:
+            for add in self.cache:
+                os.remove(add + ".cd")
+                os.remove(add + ".cl")
+        self.cache = [None] * len(self)
+
+    def __len__(self):
+        return len(self.dataset)
+
+
