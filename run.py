@@ -11,7 +11,6 @@ import torchvision
 import numpy as np
 from SpikeTorch import snn
 from SpikeTorch import functional as sf
-from SpikeTorch import visualization as vis
 from SpikeTorch import utils
 from torchvision import transforms
 
@@ -121,11 +120,11 @@ class STDPMNIST(nn.Module):
 
     def stdp(self, layer_idx):
         if layer_idx == 1:
-            self.stdp1(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"], self.ctx["winners"])
+            self.stdp1(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
         elif layer_idx == 2:
-            self.stdp2(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"], self.ctx["winners"])
+            self.stdp2(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
         else:
-            self.stdp3(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"], self.ctx["winners"])
+            self.stdp3(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
 
 
 def train_unsupervise(network, data, layer_idx):
@@ -140,7 +139,7 @@ def train_unsupervise(network, data, layer_idx):
 
 kernels = [utils.DoGKernel(7,1,2),
            utils.DoGKernel(7,2,1)]
-filter = utils.Filter(kernels)
+filter = utils.Filter(kernels, padding = 3, thresholds = 50)
 s1 = S1Transform(filter)
 
 data_root = "data"

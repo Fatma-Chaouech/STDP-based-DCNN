@@ -10,7 +10,7 @@ class Convolution(nn.Module):
         super(Convolution, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        if kernel_size.isinstance(tuple):
+        if isinstance(kernel_size, tuple):
             self.kernel_size = kernel_size
         else:
             self.kernel_size = to_pair(kernel_size)
@@ -72,13 +72,13 @@ class STDP(nn.Module):
             result.append(torch.ge(in_tensor,out_tensor))
         return result
 
-    def forward(self, input_spikes, potentials, output_spikes, kwta = 1, inhibition_radius = 0):
+    def forward(self, input_spikes, potentials, output_spikes, kwta = 3, inhibition_radius = 0):
         winners = sf.get_k_winners(potentials, kwta, inhibition_radius, output_spikes)
         pairings = self.get_pre_post_ordering(input_spikes, output_spikes, winners)
         lr = torch.zeros_like(self.conv_layer.weight)
         for i in range(len(winners)):
             winner = winners[i][0]
-            lr[winner] = torch.where(pairings[i], *(self.learning_rate[winner]))
+            lr[winner] = torch.where(pairings[i], *(self.learning_rate))
         self.conv_layer.weight += lr * ((self.conv_layer.weight-self.lower_bound) * (self.upper_bound-self.conv_layer.weight) if self.use_stabilizer else 1)
         self.conv_layer.weight.clamp_(self.lower_bound, self.upper_bound)
     
