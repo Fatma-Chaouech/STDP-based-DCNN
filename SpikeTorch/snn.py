@@ -5,6 +5,8 @@ from . import functional as sf
 from torch.nn.parameter import Parameter
 from .utils import to_pair
 
+device = torch.device('cuda')
+
 class Convolution(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, weight_mean=0.8, weight_std=0.05):
         super(Convolution, self).__init__()
@@ -23,15 +25,6 @@ class Convolution(nn.Module):
     
     def forward(self, input):
         return fn.conv2d(input, self.weight)
-
-
-class pooling(nn.Module):
-    def __init__(self, kernel_size):
-        super(Pooling, self).__init__()
-        self.kernel_size = to_pair(kernel_size)
-    
-    def forward(self, input):
-        return fn.max_pool2d(input, kernel_size, stride, padding)
 
 
 class STDP(nn.Module):
@@ -68,7 +61,7 @@ class STDP(nn.Module):
             out_tensor = torch.ones(*self.conv_layer.kernel_size, device=output_latencies.device) * output_latencies[winner]
             # slicing input tensor with the same size of the receptive field centered around winner
             # since there is no padding, there is no need to shift it to the center
-            in_tensor = input_latencies[:,winner[-2]:winner[-2]+self.conv_layer.kernel_size[-2],winner[-1]:winner[-1]+self.conv_layer.kernel_size[-1]]
+            in_tensor = input_latencies[:, winner[-2] : winner[-2] + self.conv_layer.kernel_size[-2], winner[-1] : winner[-1] + self.conv_layer.kernel_size[-1]]
             result.append(torch.ge(in_tensor,out_tensor))
         return result
 
@@ -77,11 +70,13 @@ class STDP(nn.Module):
         pairings = self.get_pre_post_ordering(input_spikes, output_spikes, winners)
         lr = torch.zeros_like(self.conv_layer.weight)
         for i in range(len(winners)):
-            winner = winners[i][0]
-            lr[winner] = torch.where(pairings[i], *(self.learning_rate))
-        self.conv_layer.weight += lr * ((self.conv_layer.weight-self.lower_bound) * (self.upper_bound-self.conv_layer.weight) if self.use_stabilizer else 1)
+            winner = winners[i][0].clone().detach().to(device)
+            pair = pairings[i].clone().detach().to(device)
+            lr0 = self.learning_rate[0].clone().detach().to(device)
+            lr1 = self.learning_rate[1].clone().detach().to(device)
+            lr[winner.item()] = torch.where(pair, lr0, lr1)
+        self.conv_layer.weight += lr * ((self.conv_layer.weight - self.lower_bound) * (self.upper_bound - self.conv_layer.weight) if self.use_stabilizer else 1)
         self.conv_layer.weight.clamp_(self.lower_bound, self.upper_bound)
     
     def update_learning_rate(self, ap, an):
-        self.learning_rate[0] = ap
-        self.learning_rate[1] = an
+        self.learning_rate = tuple([ap, an])

@@ -17,6 +17,9 @@ def pad(input, pad, value=0):
     return fn.pad(input, pad, value=value)
 
 
+def pooling(input, kernel_size, stride=None, padding=0):
+    return fn.max_pool2d(input, kernel_size, stride, padding)
+
 def local_normalization(input, normalization_radius, eps=1e-12):
     length = normalization_radius * 2 + 1
     kernel = torch.ones(1, 1, length, length, device=input.device).float() / ((length) ** 2)
@@ -85,7 +88,7 @@ def get_k_winners(potentials, kwta = 1, inhibition_radius = 0, spikes = None):
     global_pooling_size = tuple(total.size())
     winners = []
     for k in range(kwta):
-        max_val,max_idx = total.view(-1).max(0)
+        max_val, max_idx = total.view(-1).max(0)
         if max_val.item() != 0:
             # finding the 3d position of the maximum value
             max_idx_unraveled = np.unravel_index(max_idx.item(),global_pooling_size)

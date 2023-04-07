@@ -15,6 +15,7 @@ from SpikeTorch import utils
 from torchvision import transforms
 
 use_cuda = True
+device = torch.device('cuda')
 
 class S1Transform:
     def __init__(self, filter, timesteps = 30):
@@ -58,9 +59,9 @@ class STDPMNIST(nn.Module):
         self.stdp3 = snn.STDP(conv_layer=self.conv3)
 
         # maximum value that + learning rate could take
-        self.max_ap = Parameter(torch.Tensor([0.15]))
+        self.max_ap = torch.Tensor([0.15]).to(device)
 
-        self.ctx = {"input_spikes":None, "potentials":None, "output_spikes":None, "winners":None}
+        self.ctx = {"input_spikes": None, "potentials": None, "output_spikes": None, "winners": None}
         self.spk_cnt = 0
 
 
@@ -80,7 +81,7 @@ class STDPMNIST(nn.Module):
                 self.spk_cnt += 1
                 if self.spk_cnt >= 500:
                     self.spk_cnt = 0
-                    ap = torch.tensor(self.stdp1.learning_rate[0][0].item(), device=self.stdp1.learning_rate[0][0].device) * 2
+                    ap = torch.tensor(self.stdp1.learning_rate[0], device=device) * 2
                     ap = torch.min(ap, self.max_ap)
                     an = ap * -0.75
                     self.stdp1.update_learning_rate(ap.item(), an.item())
