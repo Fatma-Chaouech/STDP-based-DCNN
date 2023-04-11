@@ -105,7 +105,6 @@ class STDPMNIST(nn.Module):
             spk, pot = sf.fire(pot, self.conv2_threshold, True)
             pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
             spk_out = pooled_spk.view(1, spk.size(1))
-            print('Output shape : ', spk_out.shape)
             return spk_out
 
 
@@ -127,12 +126,17 @@ def train_unsupervise(network, data, layer_idx):
         network.stdp(layer_idx)
 
 
-def test(network, data, layer_idx):
+def encode_input(network, data):
     network.eval()
-    ans = [network(data_in.cuda(), layer_idx).max(dim = 1).reshape(-1).cpu.numpy() for data_in in data]
+    # ans = [network(data_in.cuda()).reshape(-1).cpu().numpy() for data_in in data]
+    ans = [None] * len(data)
+    for i in range(len(data)):
+        data_in = data[i]
+        if use_cuda:
+            data_in = data_in.cuda()
+        output = network(data_in)
+        ans[i] = output.reshape(-1).cpu().numpy()
     return np.array(ans)
-
-
 
 
 kernels = [utils.DoGKernel(7,1,2),
@@ -187,25 +191,40 @@ else:
 # Classification
 # Get train data
 for data, target in MNIST_loader:
-    train_X = test(stdpmnist, data)
-    train_y = target
-    
+    train_X = encode_input(stdpmnist, data)
+    train_y = np.array(target)
+
+np.save('tmp/train_x.npy', train_X)
+np.save('tmp/train_y.npy', train_y)
 
 # Get test data
 for data, target in MNIST_testLoader:
-    test_X = test(stdpmnist, data)
-    test_y = target
+    test_X = encode_input(stdpmnist, data)
+    test_y = np.array(target)
 
+np.save('tmp/test_x.npy', test_X)
+np.save('tmp/test_y.npy', test_y)
 # SVM
 
+
+train_X = np.load('tmp/train_x.npy')
+train_y = np.load('tmp/train_y.npy')
+test_X = np.load('tmp/test_x.npy')
+test_y = np.load('tmp/test_y.npy')
 clf = LinearSVC(C=2.4)
 clf.fit(train_X, train_y)
 predict_train = clf.predict(train_X)
 predict_test = clf.predict(test_X)
 
 def get_performance(X, y, predictions):
-    silence = X.size - np.count_nonzero(X)
-    correct = np.sum(np.equal(predictions, y))
+    silence = 0
+    correct = 0
+    for i in range(len(predictions)):
+        if X[i].sum() == 0:
+            silence += 1
+        else:
+            if predictions[i] == y[i]:
+                correct += 1
     return (correct / len(X), (len(X) - (correct + silence)) / len(X), silence / len(X))
 
 print(get_performance(train_X, train_y, predict_train))
