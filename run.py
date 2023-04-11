@@ -11,6 +11,8 @@ from SpikeTorch import snn
 from SpikeTorch import functional as sf
 from SpikeTorch import utils
 from torchvision import transforms
+from sklearn.svm import LinearSVC
+
 
 use_cuda = True
 device = torch.device('cuda')
@@ -27,17 +29,9 @@ class S1Transform:
         self.cnt += 1
         image = self.to_tensor(image) * 255
         image.unsqueeze_(0)
-        if self.cnt == 1:
-            print('Before DoG filter Shape :' + str(image.shape))
         image = self.filter(image)
-        if self.cnt == 1:
-            print('After DoG filter Shape :' + str(image.shape))
         image = sf.local_normalization(image, 8)
-        if self.cnt == 1:
-            print('After local normalization Shape :' + str(image.shape))
         temporal_image = self.temporal_transform(image)
-        if self.cnt == 1:
-            print('After temporal encoding Shape :' + str(temporal_image.shape))
         return temporal_image.byte()
 
 
@@ -46,7 +40,7 @@ class STDPMNIST(nn.Module):
         super(STDPMNIST, self).__init__()
 
         self.conv1 = snn.Convolution(in_channels=2, out_channels=30, kernel_size=5)
-        self.conv1_theshold = 15
+        self.conv1_threshold = 15
         self.conv1_kwinners = 5
         self.conv1_inhibition_rad = 2
 
@@ -72,19 +66,19 @@ class STDPMNIST(nn.Module):
         self.ctx["winners"] = winners
     
 
-    def forward(self, input, layer_idx):
+    def forward(self, input, layer_idx=None):
         input = sf.pad(input.float(), (2, 2, 2, 2))
         if self.training:
             potentials = self.conv1(input)
-            spk, pot = sf.fire(potentials=potentials, threshold=self.conv1_theshold, return_thresholded_potentials=True)
+            spk, pot = sf.fire(potentials=potentials, threshold=self.conv1_threshold, return_thresholded_potentials=True)
             if layer_idx == 1:
                 self.spk_cnt += 1
                 if self.spk_cnt >= 500:
                     self.spk_cnt = 0
-                    ap = torch.tensor(self.stdp1.learning_rate[0]).to(device) * 2
+                    ap = self.stdp1.learning_rate[0].clone().detach().to(device) * 2
                     ap = torch.min(ap, self.max_ap)
                     an = ap * -0.75
-                    self.stdp1.update_learning_rate(ap.item(), an.item())
+                    self.stdp1.update_learning_rate(ap, an)
                 pot = sf.pointwise_inhibition(pot)
                 spk = pot.sign()
                 winners = sf.get_k_winners(pot, self.conv1_kwinners, self.conv1_inhibition_rad, spk)
@@ -94,23 +88,25 @@ class STDPMNIST(nn.Module):
             spk_in = sf.pad(spk_pooling, (1, 1, 1, 1))
             spk_in = sf.pointwise_inhibition(spk_in)
             potentials = self.conv2(spk_in)
-            spk, pot = sf.fire(potentials, self.conv2_theshold, True)
+            spk, pot = sf.fire(potentials, self.conv2_threshold, True)
             pot = sf.pointwise_inhibition(pot)
             spk = pot.sign()
             winners = sf.get_k_winners(pot, self.conv2_kwinners, self.conv2_inhibition_rad, spk)
             self.save_data(spk_in, pot, spk, winners)
-            spk_out = sf.pooling(spk, spk.size()[2:])
+            pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
+            spk_out = pooled_spk.view(1, spk.size(1))
             return spk_out
         else:
             pot = self.conv1(input)
-            spk, pot = sf.fire(pot, self.conv1_theshold, True)
+            spk, pot = sf.fire(pot, self.conv1_threshold, True)
             pooling = sf.pooling(spk, 2, 2, 1)
             padded = sf.pad(pooling, (1, 1, 1, 1))
             pot = self.conv2(padded)
             spk, pot = sf.fire(pot, self.conv2_threshold, True)
-            spk = sf.pooling(spk, spk.size()[2:])
-            print('Output shape : ', spk.shape)
-            return spk
+            pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
+            spk_out = pooled_spk.view(1, spk.size(1))
+            print('Output shape : ', spk_out.shape)
+            return spk_out
 
 
     def stdp(self, layer_idx):
@@ -125,26 +121,16 @@ def train_unsupervise(network, data, layer_idx):
     network.train()
     for i in range(len(data)):
         data_in = data[i]
-        if i == 0:
-            print('Image Shape :' + str(data_in.shape))
         if use_cuda:
             data_in = data_in.cuda()
         network(data_in, layer_idx)
         network.stdp(layer_idx)
 
 
-def test(network, data, target, layer_idx):
+def test(network, data, layer_idx):
     network.eval()
-    ans = [None] * len(data)
-    t = [None] * len(data)
-    for i in range(len(data)):
-        data_in = data[i]
-        if use_cuda:
-            data_in = data_in.cuda()
-        output,_ = network(data_in, layer_idx).max(dim = 0)
-        ans[i] = output.reshape(-1).cpu().numpy()
-        t[i] = target[i]
-    return np.array(ans), np.array(t)
+    ans = [network(data_in.cuda(), layer_idx).max(dim = 1).reshape(-1).cpu.numpy() for data_in in data]
+    return np.array(ans)
 
 
 
@@ -200,31 +186,27 @@ else:
 
 # Classification
 # Get train data
-for data,target in MNIST_loader:
-    train_X, train_y = test(stdpmnist, data, target, 2)
+for data, target in MNIST_loader:
+    train_X = test(stdpmnist, data)
+    train_y = target
     
 
 # Get test data
-for data,target in MNIST_testLoader:
-    test_X, test_y = test(stdpmnist, data, target, 2)
+for data, target in MNIST_testLoader:
+    test_X = test(stdpmnist, data)
+    test_y = target
 
 # SVM
-from sklearn.svm import LinearSVC
+
 clf = LinearSVC(C=2.4)
 clf.fit(train_X, train_y)
 predict_train = clf.predict(train_X)
 predict_test = clf.predict(test_X)
 
 def get_performance(X, y, predictions):
-    correct = 0
-    silence = 0
-    for i in range(len(predictions)):
-        if X[i].sum() == 0:
-            silence += 1
-        else:
-            if predictions[i] == y[i]:
-                correct += 1
-    return (correct/len(X), (len(X)-(correct+silence))/len(X), silence/len(X))
+    silence = X.size - np.count_nonzero(X)
+    correct = np.sum(np.equal(predictions, y))
+    return (correct / len(X), (len(X) - (correct + silence)) / len(X), silence / len(X))
 
 print(get_performance(train_X, train_y, predict_train))
 print(get_performance(test_X, test_y, predict_test))

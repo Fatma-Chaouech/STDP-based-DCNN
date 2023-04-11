@@ -31,10 +31,8 @@ class STDP(nn.Module):
     def __init__(self, conv_layer, learning_rate = (0.004, -0.003), use_stabilizer = True, lower_bound = 0, upper_bound = 1):
         super(STDP, self).__init__()
         self.conv_layer = conv_layer
-        self.learning_rate = (Parameter(torch.tensor([learning_rate[0]])),
-                            Parameter(torch.tensor([learning_rate[1]])))
-        self.learning_rate[0].requires_grad_(False)
-        self.learning_rate[1].requires_grad_(False)
+        self.learning_rate = (torch.tensor([learning_rate[0]]),
+                            torch.tensor([learning_rate[1]]))
         self.use_stabilizer = use_stabilizer
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
@@ -72,8 +70,8 @@ class STDP(nn.Module):
         for i in range(len(winners)):
             winner = winners[i][0]
             pair = pairings[i].clone().detach().to(device)
-            lr0 = torch.tensor(self.learning_rate[0]).to(device)
-            lr1 = torch.tensor(self.learning_rate[1]).to(device)
+            lr0 = self.learning_rate[0].clone().detach().to(device)
+            lr1 = self.learning_rate[1].clone().detach().to(device)
             lr[winner.item()] = torch.where(pair, lr0, lr1)
         self.conv_layer.weight += lr * ((self.conv_layer.weight - self.lower_bound) * (self.upper_bound - self.conv_layer.weight) if self.use_stabilizer else 1)
         self.conv_layer.weight.clamp_(self.lower_bound, self.upper_bound)
