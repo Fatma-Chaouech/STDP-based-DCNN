@@ -4,6 +4,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 import torch
 import torch.nn as nn
+import numpy as np
 from torch.utils.data import DataLoader
 import torchvision
 from SpikeTorch import snn
@@ -50,7 +51,7 @@ class STDPMNIST(nn.Module):
         self.conv1_inhibition_rad = 2
 
         self.conv2 = snn.Convolution(in_channels=30, out_channels=100, kernel_size=5)
-        self.conv2_theshold = 60
+        self.conv2_threshold = 10
         self.conv2_kwinners = 8
         self.conv2_inhibition_rad = 1
 
@@ -62,8 +63,6 @@ class STDPMNIST(nn.Module):
 
         self.ctx = {"input_spikes": None, "potentials": None, "output_spikes": None, "winners": None}
         self.spk_cnt = 0
-        self.cnt1 = 0
-        self.cnt2 = 0
 
 
     def save_data(self, input_spike, potentials, output_spikes, winners):
@@ -74,23 +73,15 @@ class STDPMNIST(nn.Module):
     
 
     def forward(self, input, layer_idx):
-        if self.cnt1 == 0:
-            print('Shape Before padding : ' + str(input.shape))
         input = sf.pad(input.float(), (2, 2, 2, 2))
-        if self.cnt1 == 0:
-            print('Shape After padding : ' + str(input.shape))
         if self.training:
             potentials = self.conv1(input)
-            if self.cnt1 == 0:
-                print('Shape After Conv1: ' + str(potentials.shape))
             spk, pot = sf.fire(potentials=potentials, threshold=self.conv1_theshold, return_thresholded_potentials=True)
-            if self.cnt1 == 0:
-                print('Shape After Firing: ' + str(spk.shape))
             if layer_idx == 1:
                 self.spk_cnt += 1
                 if self.spk_cnt >= 500:
                     self.spk_cnt = 0
-                    ap = (self.stdp1.learning_rate[0]).clone().detach().to(device) * 2
+                    ap = torch.tensor(self.stdp1.learning_rate[0]).to(device) * 2
                     ap = torch.min(ap, self.max_ap)
                     an = ap * -0.75
                     self.stdp1.update_learning_rate(ap.item(), an.item())
@@ -98,43 +89,27 @@ class STDPMNIST(nn.Module):
                 spk = pot.sign()
                 winners = sf.get_k_winners(pot, self.conv1_kwinners, self.conv1_inhibition_rad, spk)
                 self.save_data(input, pot, spk, winners)
-                self.cnt1 += 1
                 return spk, pot
-            spk_pooling = sf.pooling(spk, 2, 2, 2)
-            if self.cnt2 == 0:
-                print('Shape After Pool1: ' + str(spk_pooling.shape))
+            spk_pooling = sf.pooling(spk, 2, 2, 1)
             spk_in = sf.pad(spk_pooling, (1, 1, 1, 1))
-            if self.cnt2 == 0:
-                print('Shape After padding: ' + str(spk_in.shape))
             spk_in = sf.pointwise_inhibition(spk_in)
             potentials = self.conv2(spk_in)
-            if self.cnt2 == 0:
-                print('Shape After Conv2: ' + str(potentials.shape))
             spk, pot = sf.fire(potentials, self.conv2_theshold, True)
-            if self.cnt2 == 0:
-                print('Shape After Firing: ' + str(spk.shape))
             pot = sf.pointwise_inhibition(pot)
             spk = pot.sign()
             winners = sf.get_k_winners(pot, self.conv2_kwinners, self.conv2_inhibition_rad, spk)
-            if self.cnt2 == 0:
-                print('Shape winners: ' + str(winners.shape))
             self.save_data(spk_in, pot, spk, winners)
-            spk_out = sf.pooling(spk, len(spk), 1)
-            if self.cnt2 == 0:
-                print('Shape After Global Pooling: ' + str(spk_out.shape))
-            self.cnt2 += 1
+            spk_out = sf.pooling(spk, spk.size()[2:])
             return spk_out
         else:
             pot = self.conv1(input)
             spk, pot = sf.fire(pot, self.conv1_theshold, True)
-            pooling = sf.pooling(spk, 7, 6, 1)
-            pot = self.conv2(sf.pad(pooling, (1, 1, 1, 1)))
-            spk, pot = sf.fire(pot, self.conv2_threshold, True)
             pooling = sf.pooling(spk, 2, 2, 1)
-            pot = self.conv3(sf.pad(pooling, (1, 1, 1, 1)))
-            spk, pot = sf.fire(pot, self.conv3_threshold, True)
-            spk = sf.pooling(spk, len(spk), 0, 0)
-            self.cnt3 += 1
+            padded = sf.pad(pooling, (1, 1, 1, 1))
+            pot = self.conv2(padded)
+            spk, pot = sf.fire(pot, self.conv2_threshold, True)
+            spk = sf.pooling(spk, spk.size()[2:])
+            print('Output shape : ', spk.shape)
             return spk
 
 
@@ -156,6 +131,22 @@ def train_unsupervise(network, data, layer_idx):
             data_in = data_in.cuda()
         network(data_in, layer_idx)
         network.stdp(layer_idx)
+
+
+def test(network, data, target, layer_idx):
+    network.eval()
+    ans = [None] * len(data)
+    t = [None] * len(data)
+    for i in range(len(data)):
+        data_in = data[i]
+        if use_cuda:
+            data_in = data_in.cuda()
+        output,_ = network(data_in, layer_idx).max(dim = 0)
+        ans[i] = output.reshape(-1).cpu().numpy()
+        t[i] = target[i]
+    return np.array(ans), np.array(t)
+
+
 
 
 kernels = [utils.DoGKernel(7,1,2),
@@ -204,3 +195,36 @@ else:
             iter += 1
     torch.save(stdpmnist.state_dict(), "saved_l2.net")
 
+
+
+
+# Classification
+# Get train data
+for data,target in MNIST_loader:
+    train_X, train_y = test(stdpmnist, data, target, 2)
+    
+
+# Get test data
+for data,target in MNIST_testLoader:
+    test_X, test_y = test(stdpmnist, data, target, 2)
+
+# SVM
+from sklearn.svm import LinearSVC
+clf = LinearSVC(C=2.4)
+clf.fit(train_X, train_y)
+predict_train = clf.predict(train_X)
+predict_test = clf.predict(test_X)
+
+def get_performance(X, y, predictions):
+    correct = 0
+    silence = 0
+    for i in range(len(predictions)):
+        if X[i].sum() == 0:
+            silence += 1
+        else:
+            if predictions[i] == y[i]:
+                correct += 1
+    return (correct/len(X), (len(X)-(correct+silence))/len(X), silence/len(X))
+
+print(get_performance(train_X, train_y, predict_train))
+print(get_performance(test_X, test_y, predict_test))
