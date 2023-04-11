@@ -5,10 +5,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision.datasets import ImageFolder
-from torch.nn.parameter import Parameter
 import torchvision
-import numpy as np
 from SpikeTorch import snn
 from SpikeTorch import functional as sf
 from SpikeTorch import utils
@@ -29,9 +26,17 @@ class S1Transform:
         self.cnt += 1
         image = self.to_tensor(image) * 255
         image.unsqueeze_(0)
+        if self.cnt == 1:
+            print('Before DoG filter Shape :' + str(image.shape))
         image = self.filter(image)
+        if self.cnt == 1:
+            print('After DoG filter Shape :' + str(image.shape))
         image = sf.local_normalization(image, 8)
+        if self.cnt == 1:
+            print('After local normalization Shape :' + str(image.shape))
         temporal_image = self.temporal_transform(image)
+        if self.cnt == 1:
+            print('After temporal encoding Shape :' + str(temporal_image.shape))
         return temporal_image.byte()
 
 
@@ -39,30 +44,26 @@ class STDPMNIST(nn.Module):
     def __init__(self):
         super(STDPMNIST, self).__init__()
 
-        self.conv1 = snn.Convolution(in_channels=2, out_channels=4, kernel_size=5)
-        self.conv1_theshold = 10
+        self.conv1 = snn.Convolution(in_channels=2, out_channels=30, kernel_size=5)
+        self.conv1_theshold = 15
         self.conv1_kwinners = 5
         self.conv1_inhibition_rad = 2
 
-        self.conv2 = snn.Convolution(in_channels=4, out_channels=20, kernel_size=(16, 16, 4))
+        self.conv2 = snn.Convolution(in_channels=30, out_channels=100, kernel_size=5)
         self.conv2_theshold = 60
-        self.conv2_kwinners = 5
-        self.conv2_inhibition_rad = 2
-
-        self.conv3 = snn.Convolution(in_channels=20, out_channels=10, kernel_size=(5, 5, 20))
-        self.conv3_theshold = 2
-        self.conv3_kwinners = 2
-        self.conv3_inhibition_rad = 2
+        self.conv2_kwinners = 8
+        self.conv2_inhibition_rad = 1
 
         self.stdp1 = snn.STDP(conv_layer=self.conv1)
         self.stdp2 = snn.STDP(conv_layer=self.conv2)
-        self.stdp3 = snn.STDP(conv_layer=self.conv3)
 
         # maximum value that + learning rate could take
         self.max_ap = torch.Tensor([0.15]).to(device)
 
         self.ctx = {"input_spikes": None, "potentials": None, "output_spikes": None, "winners": None}
         self.spk_cnt = 0
+        self.cnt1 = 0
+        self.cnt2 = 0
 
 
     def save_data(self, input_spike, potentials, output_spikes, winners):
@@ -73,15 +74,23 @@ class STDPMNIST(nn.Module):
     
 
     def forward(self, input, layer_idx):
+        if self.cnt1 == 0:
+            print('Shape Before padding : ' + str(input.shape))
         input = sf.pad(input.float(), (2, 2, 2, 2))
+        if self.cnt1 == 0:
+            print('Shape After padding : ' + str(input.shape))
         if self.training:
             potentials = self.conv1(input)
+            if self.cnt1 == 0:
+                print('Shape After Conv1: ' + str(potentials.shape))
             spk, pot = sf.fire(potentials=potentials, threshold=self.conv1_theshold, return_thresholded_potentials=True)
+            if self.cnt1 == 0:
+                print('Shape After Firing: ' + str(spk.shape))
             if layer_idx == 1:
                 self.spk_cnt += 1
                 if self.spk_cnt >= 500:
                     self.spk_cnt = 0
-                    ap = torch.tensor(self.stdp1.learning_rate[0], device=device) * 2
+                    ap = (self.stdp1.learning_rate[0]).clone().detach().to(device) * 2
                     ap = torch.min(ap, self.max_ap)
                     an = ap * -0.75
                     self.stdp1.update_learning_rate(ap.item(), an.item())
@@ -89,49 +98,60 @@ class STDPMNIST(nn.Module):
                 spk = pot.sign()
                 winners = sf.get_k_winners(pot, self.conv1_kwinners, self.conv1_inhibition_rad, spk)
                 self.save_data(input, pot, spk, winners)
+                self.cnt1 += 1
                 return spk, pot
-            spk_pooling = sf.pooling(spk, 2, 2, 1)
+            spk_pooling = sf.pooling(spk, 2, 2, 2)
+            if self.cnt2 == 0:
+                print('Shape After Pool1: ' + str(spk_pooling.shape))
             spk_in = sf.pad(spk_pooling, (1, 1, 1, 1))
+            if self.cnt2 == 0:
+                print('Shape After padding: ' + str(spk_in.shape))
             spk_in = sf.pointwise_inhibition(spk_in)
             potentials = self.conv2(spk_in)
+            if self.cnt2 == 0:
+                print('Shape After Conv2: ' + str(potentials.shape))
             spk, pot = sf.fire(potentials, self.conv2_theshold, True)
-            if layer_idx == 2:
-                pot = sf.pointwise_inhibition(pot)
-                spk = pot.sign()
-                winners = sf.get_k_winners(pot, self.conv2_kwinners, self.conv2_inhibition_rad, spk)
-                self.save_data(spk_in, pot, spk, winners)
-                return spk, pot
-            spk_pooling = sf.pooling(spk, 2, 2, 1)
-            spk_in = sf.pad(spk_pooling, (1, 1, 1, 1))
-            spk_in = sf.pointwise_inhibition(spk_in)
-            potentials = self.conv3(spk_in)
-            spk, pot = sf.fire(potentials, self.conv3_theshold, True)
-            spk_out = sf.pooling(spk, 2, 2, 1)
+            if self.cnt2 == 0:
+                print('Shape After Firing: ' + str(spk.shape))
+            pot = sf.pointwise_inhibition(pot)
+            spk = pot.sign()
+            winners = sf.get_k_winners(pot, self.conv2_kwinners, self.conv2_inhibition_rad, spk)
+            if self.cnt2 == 0:
+                print('Shape winners: ' + str(winners.shape))
+            self.save_data(spk_in, pot, spk, winners)
+            spk_out = sf.pooling(spk, len(spk), 1)
+            if self.cnt2 == 0:
+                print('Shape After Global Pooling: ' + str(spk_out.shape))
+            self.cnt2 += 1
             return spk_out
         else:
             pot = self.conv1(input)
             spk, pot = sf.fire(pot, self.conv1_theshold, True)
-            pot = self.conv2(sf.pad(sf.pooling(spk, 2, 2, 1), (1, 1, 1, 1)))
+            pooling = sf.pooling(spk, 7, 6, 1)
+            pot = self.conv2(sf.pad(pooling, (1, 1, 1, 1)))
             spk, pot = sf.fire(pot, self.conv2_threshold, True)
-            pot = self.conv3(sf.pad(sf.pooling(spk, 2, 2, 1), (1, 1, 1, 1)))
+            pooling = sf.pooling(spk, 2, 2, 1)
+            pot = self.conv3(sf.pad(pooling, (1, 1, 1, 1)))
             spk, pot = sf.fire(pot, self.conv3_threshold, True)
-            spk = sf.pooling(spk, 2, 2, 1)
+            spk = sf.pooling(spk, len(spk), 0, 0)
+            self.cnt3 += 1
             return spk
-    
+
 
     def stdp(self, layer_idx):
         if layer_idx == 1:
             self.stdp1(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
-        elif layer_idx == 2:
-            self.stdp2(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
         else:
-            self.stdp3(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
+            self.stdp2(self.ctx["input_spikes"], self.ctx["potentials"], self.ctx["output_spikes"])
+        
 
 
 def train_unsupervise(network, data, layer_idx):
     network.train()
     for i in range(len(data)):
         data_in = data[i]
+        if i == 0:
+            print('Image Shape :' + str(data_in.shape))
         if use_cuda:
             data_in = data_in.cuda()
         network(data_in, layer_idx)
@@ -184,18 +204,3 @@ else:
             iter += 1
     torch.save(stdpmnist.state_dict(), "saved_l2.net")
 
-
-# Training The Third Layer
-print("Training the third layer")
-if os.path.isfile("saved_l3.net"):
-    stdpmnist.load_state_dict(torch.load("saved_l3.net"))
-else:
-    for epoch in range(2):
-        print("Epoch", epoch)
-        iter = 0
-        for data,_ in MNIST_loader:
-            print("Iteration", iter)
-            train_unsupervise(stdpmnist, data, 3)
-            print("Done!")
-            iter += 1
-    torch.save(stdpmnist.state_dict(), "saved_l3.net")

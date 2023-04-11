@@ -91,7 +91,7 @@ def get_k_winners(potentials, kwta = 1, inhibition_radius = 0, spikes = None):
         max_val, max_idx = total.view(-1).max(0)
         if max_val.item() != 0:
             # finding the 3d position of the maximum value
-            max_idx_unraveled = np.unravel_index(max_idx.item(),global_pooling_size)
+            max_idx_unraveled = np.unravel_index(max_idx.item(), global_pooling_size)
             # adding to the winners list
             winners.append(max_idx_unraveled)
             # preventing the same feature to be the next winner

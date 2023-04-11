@@ -70,10 +70,10 @@ class STDP(nn.Module):
         pairings = self.get_pre_post_ordering(input_spikes, output_spikes, winners)
         lr = torch.zeros_like(self.conv_layer.weight)
         for i in range(len(winners)):
-            winner = winners[i][0].clone().detach().to(device)
+            winner = winners[i][0]
             pair = pairings[i].clone().detach().to(device)
-            lr0 = self.learning_rate[0].clone().detach().to(device)
-            lr1 = self.learning_rate[1].clone().detach().to(device)
+            lr0 = torch.tensor(self.learning_rate[0]).to(device)
+            lr1 = torch.tensor(self.learning_rate[1]).to(device)
             lr[winner.item()] = torch.where(pair, lr0, lr1)
         self.conv_layer.weight += lr * ((self.conv_layer.weight - self.lower_bound) * (self.upper_bound - self.conv_layer.weight) if self.use_stabilizer else 1)
         self.conv_layer.weight.clamp_(self.lower_bound, self.upper_bound)
