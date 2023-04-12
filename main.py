@@ -1,7 +1,4 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -13,7 +10,8 @@ from SpikeTorch import utils
 from torchvision import transforms
 from sklearn.svm import LinearSVC
 
-
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 use_cuda = True
 device = torch.device('cuda')
 
