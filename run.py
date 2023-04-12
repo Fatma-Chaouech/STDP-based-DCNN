@@ -57,6 +57,7 @@ class STDPMNIST(nn.Module):
 
         self.ctx = {"input_spikes": None, "potentials": None, "output_spikes": None, "winners": None}
         self.spk_cnt = 0
+        self.print = 0
 
 
     def save_data(self, input_spike, potentials, output_spikes, winners):
@@ -105,6 +106,9 @@ class STDPMNIST(nn.Module):
             spk, pot = sf.fire(pot, self.conv2_threshold, True)
             pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
             spk_out = pooled_spk.view(1, spk.size(1))
+            if self.print == 0:
+                print('Output shape', spk_out.shape)
+                self.print += 1
             return spk_out
 
 
