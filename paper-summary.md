@@ -7,11 +7,11 @@ In the paper "STDP-based spiking deep convolutional neural networks for object r
 <figcaption align = "center"><b>Architecture proposed in *STDP-based spiking deep convolutional neural networks for object recognition*</b></figcaption>
 
 <div>
-    <div style="display: inline-block; width: 45%; vertical-align:top;">
+    <div style="display: inline-block; width: 20%; vertical-align:top;">
         <img src="./docs/shapes.jpg" alt="Tensor shapes of the layers">
         <figcaption align="center"><b>Tensor shapes of the layers</b></figcaption>
     </div>
-    <div style="display: inline-block; width: 45%; vertical-align:top;">
+    <div style="display: inline-block; width: 20%; vertical-align:top;">
         <img src="./docs/details.jpg" alt="Details of the architecture">
         <figcaption align="center"><b>Details of the architecture</b></figcaption>
     </div>
