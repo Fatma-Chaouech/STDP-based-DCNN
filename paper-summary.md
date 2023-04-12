@@ -1,18 +1,19 @@
-**Spike-Timing Dependent Plasticity :** 
+**Summary of STDP-based spiking deep convolutional neural networks for object recognition** 
 
 In the paper "STDP-based spiking deep convolutional neural networks for object recognition", the authors present an unsupervised approach to training a spiking deep convolutional neural network (DCNN) for object recognition. The [architecture] consists of a Difference of Gaussians (DoG) filtering layer, followed by a temporal encoding step, two convolutional layers, a local pooling layer and a global pooling layer that's directly fed into a classifier. The neurons used in the paper are non-leaky integrate-and-fire neurons (IF).
 
 ![Architecture proposed in *STDP-based spiking deep convolutional neural networks for object recognition*](./docs/architecture.jpg)
 
-Architecture proposed in *STDP-based spiking deep convolutional neural networks for object recognition*
+<figcaption align = "center"><b>Architecture proposed in *STDP-based spiking deep convolutional neural networks for object recognition*</b></figcaption>
 
-![Tensor shapes of the layers](./docs/shapes.jpg)
-
-Tensor shapes of the layers
-
+            		   |
+:-------------------------:|:-------------------------:
 ![Details of the architecture](./docs/details.jpg)
+<figcaption align = "center"><b>Details of the architecture</b></figcaption>
+ |  ![Tensor shapes of the layers](./docs/shapes.jpg)
+<figcaption align = "center"><b>Tensor shapes of the layers</b></figcaption>
+)
 
-Details of the architecture
 
 The DoG filtering layer applies a filter that's sensitive to positive contrast (ON-center map) and negative contrast (OFF-center map). It approximates the center-surround properties of the ganglion cells of the retina, allowing the network to detect visual features in a way that's similar to the human visual system.
 
