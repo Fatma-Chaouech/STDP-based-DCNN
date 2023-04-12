@@ -6,16 +6,10 @@ In the paper "STDP-based spiking deep convolutional neural networks for object r
 
 <figcaption align = "center"><b>Architecture proposed in *STDP-based spiking deep convolutional neural networks for object recognition*</b></figcaption>
 
-<div>
-    <div style="display: inline-block; width: 20%; vertical-align:top;">
-        <img src="./docs/shapes.jpg" alt="Tensor shapes of the layers">
-        <figcaption align="center"><b>Tensor shapes of the layers</b></figcaption>
-    </div>
-    <div style="display: inline-block; width: 20%; vertical-align:top;">
-        <img src="./docs/details.jpg" alt="Details of the architecture">
-        <figcaption align="center"><b>Details of the architecture</b></figcaption>
-    </div>
-</div>
+| Tensor shapes of the layers | Details of the architecture |
+| :---: | :---: |
+| ![Tensor shapes of the layers](./docs/shapes.jpg) | ![Details of the architecture](./docs/details.jpg) |
+
 
 The DoG filtering layer applies a filter that's sensitive to positive contrast (ON-center map) and negative contrast (OFF-center map). It approximates the center-surround properties of the ganglion cells of the retina, allowing the network to detect visual features in a way that's similar to the human visual system.
 
