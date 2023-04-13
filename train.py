@@ -17,24 +17,24 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def train(dataset, device, model_path, model_name, data_path, args):
+def train(dataset, device, model_directory, classifier_name, data_directory, args):
     kernels = [utils.DoGKernel(7, 1, 2),
                utils.DoGKernel(7, 2, 1)]
     filter = utils.Filter(kernels, padding=3, thresholds=50)
     s1_transform = S1Transform(filter)
     stdp = STDP(device).to(device)
-    loader = get_loader(dataset, data_path,
+    loader = get_loader(dataset, data_directory,
                         s1_transform, args.batch_size)
     train_layer(1, model=stdp, loader=loader,
-                model_path=model_path, device=device)
+                model_directory=model_directory, device=device)
     train_layer(2, model=stdp, loader=loader,
-                model_path=model_path, device=device)
-    train_classifier(stdp, loader, device, model_path, model_name)
+                model_directory=model_directory, device=device)
+    train_classifier(stdp, loader, device, model_directory, classifier_name)
 
 
-def get_loader(dataset, data_path, s1_transform, batch_size=32):
+def get_loader(dataset, data_directory, s1_transform, batch_size=32):
     if dataset == 'MNIST':
-        train = utils.CacheDataset(torchvision.datasets.MNIST(root=data_path,
+        train = utils.CacheDataset(torchvision.datasets.MNIST(root=data_directory,
                                                               train=True, download=True,
                                                               transform=s1_transform))
     else:
@@ -42,14 +42,14 @@ def get_loader(dataset, data_path, s1_transform, batch_size=32):
     return DataLoader(train, batch_size=batch_size, shuffle=False)
 
 
-def train_layer(num_layer, model, loader, model_path, device='cuda'):
+def train_layer(num_layer, model, loader, model_directory, device='cuda'):
     model.train()
 
     if num_layer == 1:
         name = 'first'
     else:
         name = 'second'
-    net_path = model_path + "saved_l" + str(num_layer) + ".net"
+    net_path = model_directory + "saved_l" + str(num_layer) + ".net"
 
     logger.info("Training the " + name + " layer...")
     if os.path.isfile(net_path):
@@ -77,12 +77,12 @@ def train_unsupervised(model, data, layer_idx, device):
         model.stdp(layer_idx)
 
 
-def train_classifier(model, loader, device, model_path, model_name, C=2.4):
+def train_classifier(model, loader, device, model_directory, classifier_name, C=2.4):
     logger.info('Training the classifier...')
 
     Xtrain_path = 'tmp/train_x.npy'
     ytrain_path = 'tmp/train_y.npy'
-    pt_path = model_path + model_name
+    pt_path = model_directory + classifier_name
 
     # setting the model on prediction mode
     model.eval()

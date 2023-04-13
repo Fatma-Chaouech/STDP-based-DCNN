@@ -16,8 +16,12 @@ def pass_through_network(model, loader, X_path=None, y_path=None, device='cuda')
 
         features = np.concatenate(features)
         targets = np.concatenate(targets)
-        np.save(X_path, features)
-        np.save(y_path, targets)
+        if X_path is None:
+            np.save('tmp/test_x.npy', features)
+            np.save('tmp/test_x.npy', targets)
+        else:
+            np.save(X_path, features)
+            np.save(y_path, targets)
     return features, targets
 
 

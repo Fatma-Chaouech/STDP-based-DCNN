@@ -12,15 +12,16 @@ def main():
     device = get_device(config['use_cuda'])
     args = parse_args(config)
     if args.phase == 'train':
-        train(args.dataset, device, config['model_path'],
-              config['model_name'], config['data_path'], args)
+        train(args.dataset, device, config['model_directory'],
+              config['classifier_name'], config['data_directory'], args)
     elif args.phase == 'test':
-        test(args.dataset, device, config['model_path'],
-             config['model_name'], config['data_path'], args)
+        test(args.dataset, device, config['model_directory'],
+             config['weights_name'], config['classifier_name'], config['data_directory'], args)
 
 
 def parse_args(config):
-    pt_path = config['model_path'] + config['model_name']
+    weights_path = config['model_directory'] + config['weights_name']
+    classifier_path = config['model_directory'] + config['classifier_name']
     parser = argparse.ArgumentParser(
         description='Script to train or test the model.')
     parser.add_argument('--phase', default='train',
@@ -35,7 +36,9 @@ def parse_args(config):
                         help='path to a saved model to resume training or test')
     parser.add_argument('--dataset', default='MNIST',
                         help='path to the dataset directory')
-    parser.add_argument('--model_path', default=pt_path,
+    parser.add_argument('--weights_path', default=weights_path,
+                        help='path to the pt file')
+    parser.add_argument('--classifier_path', default=classifier_path,
                         help='path to the pt file')
     args = parser.parse_args()
     return args

@@ -15,30 +15,30 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def test(dataset, device, model_path, model_name, data_path, args):
-    pt_path = model_path + model_name
-    net_path = model_path + "saved_l2.net"
+def test(dataset, device, model_directory, weights_name, classifier_name, data_directory, args):
+    pt_path = model_directory + classifier_name
+    net_path = model_directory + weights_name
     kernels = [utils.DoGKernel(7, 1, 2),
                utils.DoGKernel(7, 2, 1)]
     filter = utils.Filter(kernels, padding=3, thresholds=50)
     s1_transform = S1Transform(filter)
-    loader = get_loader(dataset, data_path, s1_transform, args.batch_size)
+    loader = get_loader(dataset, data_directory, s1_transform, args.batch_size)
     stdp = STDP()
     stdp.load_state_dict(torch.load(net_path))
     stdp.to(device)
-    clf = torch.load(pt_path)
+    clf = torch.load(pt_path, map_location=device)
 
     test_X, test_y = pass_through_network(
         model=stdp, loader=loader, device=device)
-    predictions = clf.predict(test_X, map_location=device)
+    predictions = clf.predict(test_X)
     accuracy, error, silence = eval(test_X, test_y, predictions)
     logger.info(
         f'-------- Accuracy : {accuracy} --------\n-------- Error : {error} --------\n-------- Silence : {silence} --------')
 
 
-def get_loader(dataset, data_path, s1_transform, batch_size=32):
+def get_loader(dataset, data_directory, s1_transform, batch_size=32):
     if dataset == 'MNIST':
-        test = utils.CacheDataset(torchvision.datasets.MNIST(root=data_path,
+        test = utils.CacheDataset(torchvision.datasets.MNIST(root=data_directory,
                                                              train=False, download=True,
                                                              transform=s1_transform))
     else:
