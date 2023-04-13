@@ -33,7 +33,7 @@ def test(dataset, device, model_directory, weights_name, classifier_name, data_d
     predictions = clf.predict(test_X)
     accuracy, error, silence = eval(test_X, test_y, predictions)
     logger.info(
-        f'-------- Accuracy : {accuracy} --------\n-------- Error : {error} --------\n-------- Silence : {silence} --------')
+        f'\n-------- Accuracy : {accuracy} --------\n-------- Error : {error} --------\n-------- Silence : {silence} --------')
 
 
 def get_loader(dataset, data_directory, s1_transform, batch_size=32):

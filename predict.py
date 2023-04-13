@@ -18,7 +18,7 @@ def pass_through_network(model, loader, X_path=None, y_path=None, device='cuda')
         targets = np.concatenate(targets)
         if X_path is None:
             np.save('tmp/test_x.npy', features)
-            np.save('tmp/test_x.npy', targets)
+            np.save('tmp/test_y.npy', targets)
         else:
             np.save(X_path, features)
             np.save(y_path, targets)
@@ -31,5 +31,5 @@ def pass_batch_through_network(model, batch, device='cuda'):
         for data in batch:
             data_in = data.to(device)
             output = model(data_in)
-            ans.append(output.cpu().numpy().reshape(-1))
-        return np.concatenate(ans)
+            ans.append(output.reshape(-1).cpu().numpy())
+        return np.array(ans)

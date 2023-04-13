@@ -51,22 +51,31 @@ def train_layer(num_layer, model, loader, model_directory, device='cuda'):
         name = 'second'
     net_path = model_directory + "saved_l" + str(num_layer) + ".net"
 
-    logger.info("Training the " + name + " layer...")
+    logger.info("\nTraining the {} layer ...".format(name))
     if os.path.isfile(net_path):
         model.load_state_dict(torch.load(net_path))
     else:
+        layer_name = 'conv' + str(num_layer) + '.weight'
         learning_convergence = 1
         epoch = 1
         while learning_convergence >= 0.01:
-            logger.info(f"============ Epoch {epoch} ============")
+            logger.info(f"======================== Epoch {epoch} ========================")
+            logger.info(f"======================== Layer {num_layer} ========================")
+            logger.info(f'======================== Convergence {learning_convergence} ====================')
             iter = 0
             for data, _ in loader:
-                logger.info("Iteration", iter)
+                if iter % 500 == 0:
+                    logger.info("Iteration {}".format(iter))
                 train_unsupervised(model, data, num_layer, device)
                 iter += 1
             epoch += 1
-            learning_convergence = calculate_learning_convergence()
-
+            weights = model.state_dict()[layer_name]
+            learning_convergence = calculate_learning_convergence(weights)
+        logger.info(f"===========================================================================")
+        logger.info(f"======================== Training layer {num_layer} complete ========================")
+        logger.info(f"===========================================================================")
+        logger.info(f"- number of epochs {epoch - 1}")
+        logger.info(f"- convergence {learning_convergence}")
         torch.save(model.state_dict(), net_path)
 
 
@@ -95,7 +104,7 @@ def train_classifier(model, loader, device, model_directory, classifier_name, C=
 
 
 def calculate_learning_convergence(weights):
-    n_w = weights.size
-    sum_wf_i = np.sum(weights * (1 - weights))
+    n_w = weights.numel()
+    sum_wf_i = torch.sum(weights * (1 - weights))
     c_l = sum_wf_i / n_w
-    return c_l
+    return c_l.item()
