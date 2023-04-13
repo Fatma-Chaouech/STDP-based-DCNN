@@ -1,3 +1,4 @@
 models/notes.txt
 data/
 tmp/
+__pycache__/

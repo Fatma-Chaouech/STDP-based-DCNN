@@ -29,7 +29,11 @@ def train(dataset, device, model_directory, classifier_name, data_directory, arg
                 model_directory=model_directory, device=device)
     train_layer(2, model=stdp, loader=loader,
                 model_directory=model_directory, device=device)
-    train_classifier(stdp, loader, device, model_directory, classifier_name)
+    train_classifier(stdp, loader, device, model_directory, classifier_name, max_iter=9000)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=1e-5, max_iter=9000)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=1e-2)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=5)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=10)
 
 
 def get_loader(dataset, data_directory, s1_transform, batch_size=32):
@@ -86,7 +90,7 @@ def train_unsupervised(model, data, layer_idx, device):
         model.stdp(layer_idx)
 
 
-def train_classifier(model, loader, device, model_directory, classifier_name, C=2.4):
+def train_classifier(model, loader, device, model_directory, classifier_name, C=2.4, max_iter=1000):
     logger.info('Training the classifier...')
 
     Xtrain_path = 'tmp/train_x.npy'
@@ -98,7 +102,7 @@ def train_classifier(model, loader, device, model_directory, classifier_name, C=
     train_X, train_y = pass_through_network(
         model, loader, Xtrain_path, ytrain_path, device)
 
-    clf = LinearSVC(C=C)
+    clf = LinearSVC(C=C, max_iter=max_iter)
     clf.fit(train_X, train_y)
     torch.save(clf, pt_path)
 
