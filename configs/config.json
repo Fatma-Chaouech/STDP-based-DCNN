@@ -1,0 +1,6 @@
+{
+    "model_path": "./models/saved_models/",
+    "data_path": "./data/",
+    "use_cuda": true,
+    "model_name": "classifier.pt"
+}

@@ -7,6 +7,7 @@ from .utils import to_pair
 
 device = torch.device('cuda')
 
+
 class Convolution(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, weight_mean=0.8, weight_std=0.05):
         super(Convolution, self).__init__()
@@ -16,27 +17,28 @@ class Convolution(nn.Module):
             self.kernel_size = kernel_size
         else:
             self.kernel_size = to_pair(kernel_size)
-        self.weight = Parameter(torch.Tensor(self.out_channels, self.in_channels, *self.kernel_size))
+        self.weight = Parameter(torch.Tensor(
+            self.out_channels, self.in_channels, *self.kernel_size))
         self.weight.requires_grad_(False)
         self.reset_weight(weight_mean, weight_std)
 
     def reset_weight(self, weight_mean=0.8, weight_std=0.02):
         self.weight.normal_(weight_mean, weight_std)
-    
+
     def forward(self, input):
         return fn.conv2d(input, self.weight)
 
 
 class STDP(nn.Module):
-    def __init__(self, conv_layer, learning_rate = (0.004, -0.003), use_stabilizer = True, lower_bound = 0, upper_bound = 1):
+    def __init__(self, conv_layer, learning_rate=(0.004, -0.003), use_stabilizer=True, lower_bound=0, upper_bound=1):
         super(STDP, self).__init__()
         self.conv_layer = conv_layer
         self.learning_rate = (torch.tensor([learning_rate[0]]),
-                            torch.tensor([learning_rate[1]]))
+                              torch.tensor([learning_rate[1]]))
         self.use_stabilizer = use_stabilizer
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
-    
+
     def get_pre_post_ordering(self, input_spikes, output_spikes, winners):
         r"""Computes the ordering of the input and output spikes with respect to the position of each winner and
         returns them as a list of boolean tensors. True for pre-then-post (or concurrency) and False for post-then-pre.
@@ -56,16 +58,20 @@ class STDP(nn.Module):
         result = []
         for winner in winners:
             # generating repeated output tensor with the same size of the receptive field
-            out_tensor = torch.ones(*self.conv_layer.kernel_size, device=output_latencies.device) * output_latencies[winner]
+            out_tensor = torch.ones(
+                *self.conv_layer.kernel_size, device=output_latencies.device) * output_latencies[winner]
             # slicing input tensor with the same size of the receptive field centered around winner
             # since there is no padding, there is no need to shift it to the center
-            in_tensor = input_latencies[:, winner[-2] : winner[-2] + self.conv_layer.kernel_size[-2], winner[-1] : winner[-1] + self.conv_layer.kernel_size[-1]]
-            result.append(torch.ge(in_tensor,out_tensor))
+            in_tensor = input_latencies[:, winner[-2]: winner[-2] + self.conv_layer.kernel_size[-2],
+                                        winner[-1]: winner[-1] + self.conv_layer.kernel_size[-1]]
+            result.append(torch.ge(in_tensor, out_tensor))
         return result
 
-    def forward(self, input_spikes, potentials, output_spikes, kwta = 3, inhibition_radius = 0):
-        winners = sf.get_k_winners(potentials, kwta, inhibition_radius, output_spikes)
-        pairings = self.get_pre_post_ordering(input_spikes, output_spikes, winners)
+    def forward(self, input_spikes, potentials, output_spikes, kwta=3, inhibition_radius=0):
+        winners = sf.get_k_winners(
+            potentials, kwta, inhibition_radius, output_spikes)
+        pairings = self.get_pre_post_ordering(
+            input_spikes, output_spikes, winners)
         lr = torch.zeros_like(self.conv_layer.weight)
         for i in range(len(winners)):
             winner = winners[i][0]
@@ -73,8 +79,9 @@ class STDP(nn.Module):
             lr0 = self.learning_rate[0].clone().detach().to(device)
             lr1 = self.learning_rate[1].clone().detach().to(device)
             lr[winner.item()] = torch.where(pair, lr0, lr1)
-        self.conv_layer.weight += lr * ((self.conv_layer.weight - self.lower_bound) * (self.upper_bound - self.conv_layer.weight) if self.use_stabilizer else 1)
+        self.conv_layer.weight += lr * ((self.conv_layer.weight - self.lower_bound) * (
+            self.upper_bound - self.conv_layer.weight) if self.use_stabilizer else 1)
         self.conv_layer.weight.clamp_(self.lower_bound, self.upper_bound)
-    
+
     def update_learning_rate(self, ap, an):
         self.learning_rate = tuple([ap, an])

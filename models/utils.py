@@ -2,8 +2,6 @@ import torch
 import torch.nn.functional as fn
 import numpy as np
 import math
-from torchvision import transforms
-from torchvision import datasets
 import os
 
 
@@ -13,7 +11,6 @@ def to_pair(data):
     return (data, data)
 
 
-
 class FilterKernel:
     def __init__(self, window_size):
         self.window_size = window_size
@@ -21,19 +18,22 @@ class FilterKernel:
     def __call__(self):
         pass
 
+
 class DoGKernel(FilterKernel):
     def __init__(self, window_size, sigma1, sigma2):
         super(DoGKernel, self).__init__(window_size)
         self.sigma1 = sigma1
         self.sigma2 = sigma2
-    
+
     def __call__(self):
         w = self.window_size // 2
         x, y = np.mgrid[-w: w+1: 1, -w: w+1: 1]
         a = 1.0 / (2 * math.pi)
         prod = x * x + y * y
-        f1 = (1 / (self.sigma1 * self.sigma1)) * np.exp(-0.5 * (1 / (self.sigma1 * self.sigma1)) * prod)
-        f2 = (1 / (self.sigma2 * self.sigma2)) * np.exp(-0.5 * (1 / (self.sigma2 * self.sigma2)) * prod)
+        f1 = (1 / (self.sigma1 * self.sigma1)) * \
+            np.exp(-0.5 * (1 / (self.sigma1 * self.sigma1)) * prod)
+        f2 = (1 / (self.sigma2 * self.sigma2)) * \
+            np.exp(-0.5 * (1 / (self.sigma2 * self.sigma2)) * prod)
         dog = a * (f1 - f2)
         dog_mean = np.mean(dog)
         dog = dog - dog_mean
@@ -43,27 +43,27 @@ class DoGKernel(FilterKernel):
         return dog_tensor.float()
 
 
-
 class Filter:
     def __init__(self, filter_kernels, padding=0, thresholds=None, use_abs=False):
         self.max_window_size = filter_kernels[0].window_size
-        self.kernels = torch.stack([kernel().unsqueeze(0) for kernel in filter_kernels])
+        self.kernels = torch.stack([kernel().unsqueeze(0)
+                                   for kernel in filter_kernels])
         self.number_of_kernels = len(filter_kernels)
         self.padding = padding
         self.thresholds = thresholds
         self.use_abs = use_abs
-        
+
     def __call__(self, input):
-        output = fn.conv2d(input, self.kernels, padding = self.padding).float()
-        output = torch.where(output < self.thresholds, torch.tensor(0.0, device=output.device), output)
+        output = fn.conv2d(input, self.kernels, padding=self.padding).float()
+        output = torch.where(output < self.thresholds, torch.tensor(
+            0.0, device=output.device), output)
         if self.use_abs:
             torch.abs_(output)
         return output
 
 
-
 class Intensity2Latency:
-    def __init__(self, timesteps = 30, to_spike=False):
+    def __init__(self, timesteps=30, to_spike=False):
         self.timesteps = timesteps
         self.to_spike = to_spike
 
@@ -72,8 +72,10 @@ class Intensity2Latency:
         nonzero_cnt = torch.nonzero(intensities).size()[0]
         bin_size = nonzero_cnt // self.timesteps
         intensities_flattened = torch.reshape(intensities, (-1,))
-        intensities_flattened_sorted = torch.sort(intensities_flattened, descending=True)
-        sorted_bins_value, sorted_bins_idx = torch.split(intensities_flattened_sorted[0], bin_size), torch.split(intensities_flattened_sorted[1], bin_size)
+        intensities_flattened_sorted = torch.sort(
+            intensities_flattened, descending=True)
+        sorted_bins_value, sorted_bins_idx = torch.split(
+            intensities_flattened_sorted[0], bin_size), torch.split(intensities_flattened_sorted[1], bin_size)
         spike_map = torch.zeros_like(intensities_flattened_sorted[0])
         for i in range(self.timesteps):
             spike_map.scatter_(0, sorted_bins_idx[i], sorted_bins_value[i])
@@ -81,7 +83,7 @@ class Intensity2Latency:
             spike_map_copy = spike_map_copy.reshape(tuple(intensities.shape))
             bins_intensities.append(spike_map_copy.squeeze(0).float())
         return torch.stack(bins_intensities)
-    
+
     def __call__(self, image):
         if self.to_spike:
             return self.transform(image).sign()
@@ -121,5 +123,3 @@ class CacheDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.dataset)
-
-
