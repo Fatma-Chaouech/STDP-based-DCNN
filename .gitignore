@@ -2,3 +2,5 @@ models/notes.txt
 data/
 tmp/
 __pycache__/
+models/__pycache__/
+.ddcache
