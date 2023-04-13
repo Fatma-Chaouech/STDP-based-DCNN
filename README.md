@@ -15,12 +15,12 @@ pip install -r requirements.txt
 Next, you can run the main training script to train the network on a dataset of your choice:
 ```
 python3 main.py --phase train --dataset <path-to-train-dataset>
-
 ```
 
 By default, the script will train the network on the MNIST dataset. You can specify a different dataset by providing the appropriate command line argument.
 
-To test your model, you can run the following command in your terminal: ``` 
+To test your model, you can run the following command in your terminal: 
+``` 
 python3 --phase test --dataset <path-to-test-dataset> --weights_path <path-to-weights> --classifier_path <path-to-classifier>
 ```
 
