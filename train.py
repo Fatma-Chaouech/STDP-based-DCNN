@@ -102,7 +102,7 @@ def train_classifier(model, loader, device, model_directory, classifier_name, C=
     train_X, train_y = pass_through_network(
         model, loader, Xtrain_path, ytrain_path, device)
 
-    clf = LinearSVC(C=C, max_iter=max_iter)
+    clf = LinearSVC(C=C, max_iter=max_iter, verbose=1)
     clf.fit(train_X, train_y)
     torch.save(clf, pt_path)
 
