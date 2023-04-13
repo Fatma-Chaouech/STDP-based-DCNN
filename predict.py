@@ -33,3 +33,12 @@ def pass_batch_through_network(model, batch, device='cuda'):
             output = model(data_in)
             ans.append(output.reshape(-1).cpu().numpy())
         return np.array(ans)
+    
+
+def eval(X, y, predictions):
+    non_silence_mask = np.count_nonzero(X, axis=1) > 0
+    correct_mask = predictions == y
+    correct_non_silence = np.logical_and(correct_mask, non_silence_mask)
+    correct = np.count_nonzero(correct_non_silence)
+    silence = np.count_nonzero(~non_silence_mask)
+    return (correct / len(X), (len(X) - (correct + silence)) / len(X), silence / len(X))

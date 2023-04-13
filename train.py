@@ -1,17 +1,14 @@
 import os
 import torch
-import numpy as np
 from torch.utils.data import DataLoader
 import torchvision
 from data.preprocess import S1Transform
 from models import utils
-import torch.utils.data as data
 from sklearn.svm import LinearSVC
 import torchvision.datasets as datasets
 from models.model import STDP
 import logging
-
-from predict import pass_through_network
+from predict import pass_through_network, eval
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -29,11 +26,12 @@ def train(dataset, device, model_directory, classifier_name, data_directory, arg
                 model_directory=model_directory, device=device)
     train_layer(2, model=stdp, loader=loader,
                 model_directory=model_directory, device=device)
-    train_classifier(stdp, loader, device, model_directory, classifier_name, max_iter=9000)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, max_iter=9000)
     # train_classifier(stdp, loader, device, model_directory, classifier_name, C=1e-5, max_iter=9000)
-    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=1e-2)
-    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=5)
-    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=10)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=1e-2, max_iter=9000)
+    train_eval_classifier(stdp, loader, device, model_directory, classifier_name, C=2.4)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=1, max_iter=9000)
+    # train_classifier(stdp, loader, device, model_directory, classifier_name, C=10, max_iter=9000)
 
 
 def get_loader(dataset, data_directory, s1_transform, batch_size=32):
@@ -90,21 +88,25 @@ def train_unsupervised(model, data, layer_idx, device):
         model.stdp(layer_idx)
 
 
-def train_classifier(model, loader, device, model_directory, classifier_name, C=2.4, max_iter=1000):
+def train_eval_classifier(model, loader, device, model_directory, classifier_name, C=2.4, max_iter=1000):
     logger.info('Training the classifier...')
 
     Xtrain_path = 'tmp/train_x.npy'
     ytrain_path = 'tmp/train_y.npy'
     pt_path = model_directory + classifier_name
 
-    # setting the model on prediction mode
+    # setting the model to prediction mode
     model.eval()
     train_X, train_y = pass_through_network(
         model, loader, Xtrain_path, ytrain_path, device)
 
-    clf = LinearSVC(C=C, max_iter=max_iter, verbose=1)
+    clf = LinearSVC(C=C, max_iter=max_iter)
     clf.fit(train_X, train_y)
     torch.save(clf, pt_path)
+    predictions = clf.predict(train_X)
+    accuracy, error, silence = eval(train_X, train_y, predictions)
+    logger.info(
+        f'\n-------- Accuracy : {accuracy} --------\n-------- Error : {error} --------\n-------- Silence : {silence} --------')
 
 
 def calculate_learning_convergence(weights):

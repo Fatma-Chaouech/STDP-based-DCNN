@@ -72,8 +72,6 @@ def get_k_winners(potentials, kwta=1, inhibition_radius=0, spikes=None):
     Returns:
         List: List of winners.
     """
-    if spikes is None:
-        spikes = potentials.sign()
     # finding earliest potentials for each position in each feature
     maximum = (spikes.size(0) - spikes.sum(dim=0, keepdim=True)).long()
     maximum.clamp_(0, spikes.size(0)-1)

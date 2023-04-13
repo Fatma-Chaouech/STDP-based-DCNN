@@ -6,7 +6,7 @@ from torchvision import datasets
 import torch.utils.data as data
 from torch.utils.data import DataLoader
 import numpy as np
-from predict import pass_through_network
+from predict import pass_through_network, eval
 import logging
 from models.model import STDP
 
@@ -44,12 +44,3 @@ def get_loader(dataset, data_directory, s1_transform, batch_size=32):
     else:
         test = datasets.ImageFolder(root=dataset, transform=s1_transform)
     return DataLoader(test, batch_size=batch_size, shuffle=False)
-
-
-def eval(X, y, predictions):
-    non_silence_mask = np.count_nonzero(X, axis=1) > 0
-    correct_mask = predictions == y
-    correct_non_silence = np.logical_and(correct_mask, non_silence_mask)
-    correct = np.count_nonzero(correct_non_silence)
-    silence = np.count_nonzero(~non_silence_mask)
-    return (correct / len(X), (len(X) - (correct + silence)) / len(X), silence / len(X))
