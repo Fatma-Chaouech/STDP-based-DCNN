@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as fn
 import numpy as np
-from .utils import to_pair
 
 
 def fire(potentials, threshold, return_thresholded_potentials=False):

@@ -1,5 +1,6 @@
 models/notes.txt
-data/
+data/MNIST/
+data/__pycache__/
 tmp/
 __pycache__/
 models/__pycache__/

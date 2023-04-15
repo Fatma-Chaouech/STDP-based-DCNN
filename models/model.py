@@ -3,21 +3,21 @@ import torch.nn as nn
 from models import snn, functional as sf
 
 
-class STDP(nn.Module):
+class Network(nn.Module):
 
     def __init__(self, device='cuda'):
-        super(STDP, self).__init__()
+        super(Network, self).__init__()
         self.device = device
 
         self.conv1 = snn.Convolution(
-            in_channels=2, out_channels=30, kernel_size=5)
-        self.conv1_threshold = 15
+            in_channels=2, out_channels=32, kernel_size=5)
+        self.conv1_threshold = 10
         self.conv1_kwinners = 5
         self.conv1_inhibition_rad = 2
 
         self.conv2 = snn.Convolution(
-            in_channels=30, out_channels=100, kernel_size=5)
-        self.conv2_threshold = 10
+            in_channels=32, out_channels=150, kernel_size=2)
+        self.conv2_threshold = 1
         self.conv2_kwinners = 8
         self.conv2_inhibition_rad = 1
 
@@ -62,23 +62,20 @@ class STDP(nn.Module):
                 winners = sf.get_k_winners(
                     pot, self.conv1_kwinners, self.conv1_inhibition_rad, spk)
                 self.save_data(input, pot, spk, winners)
-                return spk, pot
 
-            spk_pooling = sf.pooling(spk, 2, 2, 1)
-            spk_in = sf.pad(spk_pooling, (1, 1, 1, 1))
-            spk_in = sf.pointwise_inhibition(spk_in)
+            else:
+                spk_pooling = sf.pooling(spk, 2, 2, 1)
+                spk_in = sf.pad(spk_pooling, (1, 1, 1, 1))
+                spk_in = sf.pointwise_inhibition(spk_in)
 
-            potentials = self.conv2(spk_in)
-            spk, pot = sf.fire(potentials, self.conv2_threshold, True)
-            pot = sf.pointwise_inhibition(pot)
-            spk = pot.sign()
-            winners = sf.get_k_winners(
-                pot, self.conv2_kwinners, self.conv2_inhibition_rad, spk)
+                potentials = self.conv2(spk_in)
+                spk, pot = sf.fire(potentials, self.conv2_threshold, True)
+                pot = sf.pointwise_inhibition(pot)
+                spk = pot.sign()
+                winners = sf.get_k_winners(
+                    pot, self.conv2_kwinners, self.conv2_inhibition_rad, spk)
 
-            self.save_data(spk_in, pot, spk, winners)
-            pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
-            spk_out = pooled_spk.view(1, spk.size(1))
-            return spk_out
+                self.save_data(spk_in, pot, spk, winners)
 
         else:
             pot = self.conv1(input)
@@ -87,15 +84,16 @@ class STDP(nn.Module):
             padded = sf.pad(pooling, (1, 1, 1, 1))
 
             pot = self.conv2(padded)
-            spk, pot = sf.fire(pot, self.conv2_threshold, True)
-            pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
-            spk_out = pooled_spk.view(1, spk.size(1))
+            spk, _ = sf.fire(pot, self.conv2_threshold, True)
+            spk_out = sf.pooling(spk, 2, 2, 1)
+            # pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
+            # spk_out = pooled_spk.view(1, spk.size(1))
             return spk_out
 
     def stdp(self, layer_idx):
         if layer_idx == 1:
-            stdp_ = self.stdp1
+            stdpn = self.stdp1
         else:
-            stdp_ = self.stdp2
-        stdp_(self.ctx["input_spikes"], self.ctx["potentials"],
-              self.ctx["output_spikes"])
+            stdpn = self.stdp2
+        stdpn(self.ctx["input_spikes"],
+              self.ctx["output_spikes"], self.ctx["winners"])

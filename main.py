@@ -26,8 +26,6 @@ def parse_args(config):
         description='Script to train or test the model.')
     parser.add_argument('--phase', default='train',
                         choices=['train', 'test'], help='train or test phase')
-    parser.add_argument('--batch_size', type=int, default=32,
-                        help='batch size for training/testing')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train')
     parser.add_argument('--lr', type=float, default=0.001,

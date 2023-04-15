@@ -67,9 +67,7 @@ class STDP(nn.Module):
             result.append(torch.ge(in_tensor, out_tensor))
         return result
 
-    def forward(self, input_spikes, potentials, output_spikes, kwta=3, inhibition_radius=0):
-        winners = sf.get_k_winners(
-            potentials, kwta, inhibition_radius, output_spikes)
+    def forward(self, input_spikes, output_spikes, winners):
         pairings = self.get_pre_post_ordering(
             input_spikes, output_spikes, winners)
         lr = torch.zeros_like(self.conv_layer.weight)

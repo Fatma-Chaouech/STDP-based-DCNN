@@ -29,41 +29,35 @@ class DoGKernel(FilterKernel):
         w = self.window_size // 2
         x, y = np.mgrid[-w: w+1: 1, -w: w+1: 1]
         a = 1.0 / (2 * math.pi)
-        prod = x * x + y * y
-        f1 = (1 / (self.sigma1 * self.sigma1)) * \
-            np.exp(-0.5 * (1 / (self.sigma1 * self.sigma1)) * prod)
-        f2 = (1 / (self.sigma2 * self.sigma2)) * \
-            np.exp(-0.5 * (1 / (self.sigma2 * self.sigma2)) * prod)
+        prod = x ** 2 + y ** 2
+        f1 = (1 / (self.sigma1 ** 2)) * \
+            np.exp(-0.5 * (1 / (self.sigma1 ** 2)) * prod)
+        f2 = (1 / (self.sigma2 ** 2)) * \
+            np.exp(-0.5 * (1 / (self.sigma2 ** 2)) * prod)
         dog = a * (f1 - f2)
-        dog_mean = np.mean(dog)
-        dog = dog - dog_mean
-        dog_max = np.max(dog)
-        dog = dog / dog_max
+        dog = (dog - np.mean(dog)) / np.max(dog)
         dog_tensor = torch.from_numpy(dog)
         return dog_tensor.float()
 
 
 class Filter:
-    def __init__(self, filter_kernels, padding=0, thresholds=None, use_abs=False):
+    def __init__(self, filter_kernels, padding = 0, threshold = None):
         self.max_window_size = filter_kernels[0].window_size
         self.kernels = torch.stack([kernel().unsqueeze(0)
                                    for kernel in filter_kernels])
         self.number_of_kernels = len(filter_kernels)
         self.padding = padding
-        self.thresholds = thresholds
-        self.use_abs = use_abs
+        self.threshold = threshold
 
     def __call__(self, input):
         output = fn.conv2d(input, self.kernels, padding=self.padding).float()
-        output = torch.where(output < self.thresholds, torch.tensor(
+        output = torch.where(output < self.threshold, torch.tensor(
             0.0, device=output.device), output)
-        if self.use_abs:
-            torch.abs_(output)
         return output
 
 
 class Intensity2Latency:
-    def __init__(self, timesteps=30, to_spike=False):
+    def __init__(self, timesteps, to_spike = False):
         self.timesteps = timesteps
         self.to_spike = to_spike
 
