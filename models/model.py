@@ -10,13 +10,13 @@ class Network(nn.Module):
         self.device = device
 
         self.conv1 = snn.Convolution(
-            in_channels=2, out_channels=32, kernel_size=5)
+            in_channels=2, out_channels=30, kernel_size=5)
         self.conv1_threshold = 10
         self.conv1_kwinners = 5
         self.conv1_inhibition_rad = 2
 
         self.conv2 = snn.Convolution(
-            in_channels=32, out_channels=150, kernel_size=2)
+            in_channels=30, out_channels=100, kernel_size=5)
         self.conv2_threshold = 1
         self.conv2_kwinners = 8
         self.conv2_inhibition_rad = 1
@@ -84,10 +84,9 @@ class Network(nn.Module):
             padded = sf.pad(pooling, (1, 1, 1, 1))
 
             pot = self.conv2(padded)
-            spk, _ = sf.fire(pot, self.conv2_threshold, True)
-            spk_out = sf.pooling(spk, 2, 2, 1)
-            # pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
-            # spk_out = pooled_spk.view(1, spk.size(1))
+            spk, pot = sf.fire(pot, self.conv2_threshold, True)
+            pooled_spk, _ = torch.max(spk.reshape(spk.size(1), -1), dim=1)
+            spk_out = pooled_spk.view(1, spk.size(1))
             return spk_out
 
     def stdp(self, layer_idx):
