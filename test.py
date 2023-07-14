@@ -5,7 +5,6 @@ from models import utils
 from torchvision import datasets
 import torch.utils.data as data
 from torch.utils.data import DataLoader
-import numpy as np
 from predict import pass_through_network, eval
 import logging
 from models.model import Network

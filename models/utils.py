@@ -41,7 +41,7 @@ class DoGKernel(FilterKernel):
 
 
 class Filter:
-    def __init__(self, filter_kernels, padding = 0, threshold = None):
+    def __init__(self, filter_kernels, padding=0, threshold=None):
         self.max_window_size = filter_kernels[0].window_size
         self.kernels = torch.stack([kernel().unsqueeze(0)
                                    for kernel in filter_kernels])
@@ -57,7 +57,7 @@ class Filter:
 
 
 class Intensity2Latency:
-    def __init__(self, timesteps, to_spike = False):
+    def __init__(self, timesteps, to_spike=False):
         self.timesteps = timesteps
         self.to_spike = to_spike
 

@@ -1,10 +1,9 @@
 models/notes.txt
-models/__pycache__/
 data/MNIST/
-data/__pycache__/
 tmp/train_x.npy
 tmp/train_y.npy
 tmp/test_x.npy
 tmp/test_y.npy
 __pycache__/
+*/__pycache__/
 .ddcache

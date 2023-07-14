@@ -3,11 +3,14 @@ import numpy as np
 import os
 
 
-def pass_through_network(model, loader, X_path=None, y_path=None, device='cuda'):
-    if X_path is not None and os.path.isfile(X_path):
+def pass_through_network(model, loader, device='cuda'):
+    X_path = 'tmp/test_x.npy'
+    y_path = 'tmp/test_y.npy'
+    if os.path.isfile(X_path):
         features = np.load(X_path)
         targets = np.load(y_path)
     else:
+        os.makedirs('tmp', exist_ok=True)
         features = []
         targets = []
         for data, target in loader:
@@ -16,12 +19,8 @@ def pass_through_network(model, loader, X_path=None, y_path=None, device='cuda')
 
         features = np.concatenate(features)
         targets = np.concatenate(targets)
-        if X_path is None:
-            np.save('tmp/test_x.npy', features)
-            np.save('tmp/test_y.npy', targets)
-        else:
-            np.save(X_path, features)
-            np.save(y_path, targets)
+        np.save(X_path, features)
+        np.save(y_path, targets)
     return features, targets
 
 

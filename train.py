@@ -50,10 +50,8 @@ def train_layer(num_layer, model, loader, model_directory, device='cuda'):
 
     if num_layer == 1:
         name = 'first'
-        max_epoch = 2
     else:
         name = 'second'
-        max_epoch = 20
     net_path = model_directory + "saved_l" + str(num_layer) + ".net"
 
     logger.info("\nTraining the {} layer ...".format(name))
@@ -95,15 +93,12 @@ def train_unsupervised(model, data, layer_idx, device):
 
 def train_eval_classifier(model, loader, device, model_directory, classifier_name, C=2.4, max_iter=1000):
     logger.info('Training the classifier...')
-
-    Xtrain_path = 'tmp/train_x.npy'
-    ytrain_path = 'tmp/train_y.npy'
     pt_path = model_directory + classifier_name
 
     # setting the model to prediction mode
     model.eval()
     train_X, train_y = pass_through_network(
-        model, loader, Xtrain_path, ytrain_path, device)
+        model, loader, device)
 
     clf = LinearSVC(C=C, max_iter=max_iter)
     clf.fit(train_X, train_y)

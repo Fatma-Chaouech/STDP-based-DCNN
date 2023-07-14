@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 class S1Transform:
     def __init__(self, filter, timesteps = 15):
         self.to_tensor = transforms.ToTensor()
+        self.to_gray = transforms.Grayscale()
         self.filter = filter
         self.temporal_transform = utils.Intensity2Latency(
             timesteps, to_spike=True)
@@ -19,6 +20,7 @@ class S1Transform:
             logging.info(f'Preprocessed {self.cnt} images')
         self.cnt += 1
         image = self.to_tensor(image) * 255
+        image = self.to_gray(image)
         image.unsqueeze_(0)
         image = self.filter(image)
         image = sf.local_normalization(image, 8)
