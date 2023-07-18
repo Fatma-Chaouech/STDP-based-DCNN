@@ -26,14 +26,9 @@ def train(dataset, device, model_directory, classifier_name, data_directory, arg
                 model_directory=model_directory, device=device)
     train_layer(2, model=model, loader=loader,
                 model_directory=model_directory, device=device)
-    # train_classifier(model, loader, device, model_directory, classifier_name, max_iter=9000)
-    # train_classifier(model, loader, device, model_directory, classifier_name, C=1e-5, max_iter=9000)
-    # train_classifier(model, loader, device, model_directory, classifier_name, C=1e-2, max_iter=9000)
     train_eval_classifier(model, loader, device,
                           model_directory, classifier_name, C=2.4)
-    # train_classifier(model, loader, device, model_directory, classifier_name, C=1, max_iter=9000)
-    # train_classifier(model, loader, device, model_directory, classifier_name, C=10, max_iter=9000)
-
+   
 
 def get_loader(dataset, data_directory, s1_transform):
     if dataset == 'MNIST':
@@ -61,7 +56,7 @@ def train_layer(num_layer, model, loader, model_directory, device='cuda'):
         layer_name = 'conv' + str(num_layer) + '.weight'
         learning_convergence = 1
         epoch = 1
-        while learning_convergence <= 0.01:
+        while learning_convergence > 0.01:
             logger.info(
                 f"======================== Epoch {epoch} ========================")
             logger.info(
